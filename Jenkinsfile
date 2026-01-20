@@ -6,7 +6,7 @@ pipeline {
     environment {
         // Update the main app image name to match the deployment file
         DOCKER_IMAGE_NAME = 'ganeshkhaire14/easyshop-app'
-        DOCKER_MIGRATION_IMAGE_NAME = 'ganeshkhaire/easyshop-migration'
+        DOCKER_MIGRATION_IMAGE_NAME = 'ganeshkhaire14/easyshop-migration'
         DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
         GITHUB_CREDENTIALS = credentials('github-credentials')
         GIT_BRANCH = "main"
@@ -24,7 +24,11 @@ pipeline {
         stage('Clone Repository') {
             steps {
                 script {
-                    clone("https://github.com/ganeshkhairedevops/eshop.git","main")
+                    git(
+                url: 'https://github.com/ganeshkhairedevops/eshop.git',
+                branch: "${GIT_BRANCH}",
+                credentialsId: 'github-credentials'
+                    )
                 }
             }
         }
