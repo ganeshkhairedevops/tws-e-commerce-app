@@ -37,11 +37,20 @@ axiosInstance.interceptors.request.use(
 const fetchData = {
   get: async (url: string, params = {}) => {
     try {
-      // Get token from cookie
-      const cookies = document.cookie.split(';');
-      const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('token='));
-      const token = tokenCookie ? decodeURIComponent(tokenCookie.split('=')[1].trim()) : null;
-
+      // Get token from cookie - safely check for document
+      let token = null;
+      if (typeof window !== 'undefined') {
+        const cookies = document.cookie.split(';');
+        const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('token='));
+        token = tokenCookie ? decodeURIComponent(tokenCookie.split('=')[1].trim()) : null;
+        
+        // Also check for auth-token cookie
+        const authTokenCookie = cookies.find(cookie => cookie.trim().startsWith('auth-token='));
+        if (!token && authTokenCookie) {
+          token = decodeURIComponent(authTokenCookie.split('=')[1].trim());
+        }
+      }
+      
       const config = {
         params,
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
@@ -77,3 +86,49 @@ const fetchData = {
 };
 
 export default fetchData;
+
+// Add client-side check before accessing browser APIs
+export const fetchDataFromApi = async (url: string) => {
+  // Skip server-side execution
+  if (typeof window === 'undefined') return null;
+
+  try {
+    // Always use the current origin for API requests
+    // This ensures it works in both local and EC2 environments
+    const apiUrl = `${window.location.origin}/api`;
+    
+    // Get token from multiple possible sources
+    let token = null;
+    
+    // Try localStorage first
+    if (typeof localStorage !== 'undefined') {
+      token = localStorage.getItem("token");
+    }
+    
+    // Also check cookies if localStorage token isn't available
+    if (!token) {
+      const cookies = document.cookie.split(';');
+      const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('token='));
+      const authTokenCookie = cookies.find(cookie => cookie.trim().startsWith('auth-token='));
+      
+      if (tokenCookie) {
+        token = decodeURIComponent(tokenCookie.split('=')[1].trim());
+      } else if (authTokenCookie) {
+        token = decodeURIComponent(authTokenCookie.split('=')[1].trim());
+      }
+    }
+    
+    const res = await fetch(apiUrl + url, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      credentials: 'include' // Important for sending cookies
+    });
+    
+    return res.json();
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    return null;
+  }
+};

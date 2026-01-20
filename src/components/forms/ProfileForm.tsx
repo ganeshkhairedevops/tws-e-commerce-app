@@ -19,6 +19,10 @@ import Image from "next/image";
 import { IoMdCloudUpload } from "react-icons/io";
 import { useEffect, useState } from "react";
 import { Variants, motion, AnimatePresence } from "framer-motion";
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/ui/use-toast'; // Add this import
+import { setCurrentUser } from "@/lib/features/auth/authSlice";
+import { useDispatch } from "react-redux";
 
 const ContainerVariants: Variants = {
   hidden: {
@@ -71,8 +75,12 @@ const formSchema = z.object({
 });
 
 const ProfileForm = () => {
+  const router = useRouter();
+  const { toast } = useToast(); // Initialize toast hook
   const [uploadImgUrl, setUploadImgUrl] = useState("");
   const { currentUser } = useAppSelector((state) => state.authSlice);
+  const [loading, setLoading] = useState(false);
+  const dispatch = useDispatch();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -85,10 +93,49 @@ const ProfileForm = () => {
   });
 
   // Define a submit handler.
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Do something with the form values.
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: values.name,
+          email: values.email,
+          bio: values.bio
+        }),
+      });
 
-    console.log(values);
+      const data = await response.json();
+      
+      if (!response.ok) throw new Error(data.error || 'Update failed');
+
+      // Update Redux state with new bio
+      dispatch(setCurrentUser({
+        ...(currentUser as { _id: string, name: string, email: string, bio?: string, role: string, avatar: string }),
+        name: data.user.name,
+        email: data.user.email,
+        bio: data.user.bio,
+        role: data.user.role,
+        avatar: data.user.avatar
+      }));
+
+      toast({
+        title: "Success",
+        description: "Profile updated successfully",
+      });
+      router.refresh();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Update failed",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,6 +147,7 @@ const ProfileForm = () => {
     return;
   };
 
+  // Update the email field to use proper react-hook-form management
   return (
     <AnimatePresence>
       <motion.div
@@ -167,8 +215,8 @@ const ProfileForm = () => {
                     <FormControl>
                       <Input
                         placeholder="Enter your email"
-                        // defaultValue={currentUser?.email}
                         {...field}
+                        readOnly
                       />
                     </FormControl>
                     <FormMessage />

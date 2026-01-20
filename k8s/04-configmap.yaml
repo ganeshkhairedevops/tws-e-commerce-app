@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: easyshop-config
+  namespace: easyshop
+data:
+  MONGODB_URI: "mongodb://mongodb-service:27017/easyshop"
+  NODE_ENV: "production"
+  NEXT_PUBLIC_API_URL: "http://127.0.0.1/api"  # Replace with your YOUR_EC2_PUBLIC_IP
+  NEXTAUTH_URL: "http://127.0.0.1"             # Replace with your YOUR_EC2_PUBLIC_IP
+  NEXTAUTH_SECRET: "FuAlQy8l4+kt1/vd/3FCK7dlv9mOqWjemKORzl+Q4bo="
+  JWT_SECRET: "c920e60b4f7244c30da49646a1e48f28cf1646dff36bbafc2720307c972393d7"

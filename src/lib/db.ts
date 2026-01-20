@@ -1,30 +1,18 @@
 import mongoose from 'mongoose';
 
-interface MongooseCache {
-  conn: typeof mongoose | null;
-  promise: Promise<typeof mongoose> | null;
-}
-
-declare global {
-  var mongoose: MongooseCache | undefined;
-}
-
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/easyshop';
+const MONGODB_URI = process.env.MONGODB_URI!;
 
 if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env');
+  throw new Error('Please define the MONGODB_URI environment variable');
 }
 
-let cached: MongooseCache = (global.mongoose as MongooseCache) || {
-  conn: null,
-  promise: null,
-};
+let cached: { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null } = (global as any).mongoose;
 
-if (!global.mongoose) {
-  global.mongoose = cached;
+if (!cached) {
+  cached = (global as any).mongoose = { conn: null, promise: null };
 }
 
-async function dbConnect() {
+export async function dbConnect() {
   if (cached.conn) {
     return cached.conn;
   }

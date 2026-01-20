@@ -24,24 +24,22 @@ export interface CartState {
 
 // Define the initial state using that type
 const initialState: CartState = {
-  cartItems:
-    (typeof window !== "undefined" &&
-      JSON.parse(window.localStorage.getItem("cartItems") as string)) ||
-    [],
+  cartItems: typeof window !== "undefined" ? 
+    JSON.parse(localStorage.getItem("cartItems") || "[]") : [],
   isCartOpen: false,
-  wishlists:
-    (typeof window !== "undefined" &&
-      JSON.parse(window.localStorage.getItem("wishlists") as string)) ||
-    [],
+  wishlists: typeof window !== "undefined" ? 
+    JSON.parse(localStorage.getItem("wishlists") || "[]") : [],
   countValue: 1,
   selectedSize: undefined,
   selectedColor: undefined,
 };
 
-export const cartSlice = createSlice({
-  name: "cart",
+// Add cache synchronization
+const cartSlice = createSlice({
+  name: 'cart',
   initialState,
   reducers: {
+    // Rename updateCart to handleCartOpen
     handleCartOpen: (state) => {
       state.isCartOpen = !state.isCartOpen;
     },

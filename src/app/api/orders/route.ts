@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Order from '@/lib/models/order';
-import Cart from '@/lib/models/cart';
+import { Cart } from '@/lib/models/cart';  // Change to named import
 import Product from '@/lib/models/product';
 import { requireAuth } from '@/lib/auth/utils';
 

@@ -52,34 +52,31 @@ export const verifyToken = async (token: string): Promise<JWTPayload | null> => 
   }
 };
 
-export const getTokenFromRequest = (request: NextRequest): string | null => {
-  try {
-    // Try to get token from Authorization header
-    const authHeader = request.headers.get('authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      console.log('Found token in Authorization header');
-      if (token && token !== 'undefined' && token !== '[object Object]') {
-        return token;
-      }
-    }
+// Add this to your existing utils.ts file or update if it exists
 
-    // Try to get token from cookie
-    const token = request.cookies.get('token')?.value;
-    if (token) {
-      console.log('Found token in cookie');
-      if (token !== 'undefined' && token !== '[object Object]') {
-        return token;
-      }
-    }
-
-    console.log('No valid token found in request');
-    return null;
-  } catch (error) {
-    console.error('Error getting token from request:', error);
-    return null;
+export function getTokenFromRequest(request: NextRequest): string | null {
+  // Try to get token from Authorization header
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
   }
-};
+  
+  // Try to get token from cookies
+  const cookies = request.cookies;
+  const tokenFromCookie = cookies.get('auth-token')?.value || cookies.get('token')?.value;
+  if (tokenFromCookie) {
+    return tokenFromCookie;
+  }
+  
+  // Try to get token from query parameter (not recommended for production)
+  const url = new URL(request.url);
+  const tokenFromQuery = url.searchParams.get('token');
+  if (tokenFromQuery) {
+    return tokenFromQuery;
+  }
+  
+  return null;
+}
 
 export const isAuthenticated = async (request: NextRequest) => {
   const token = getTokenFromRequest(request);

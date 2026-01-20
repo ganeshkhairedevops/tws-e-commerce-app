@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 // Define a type for the slice state
-export type User = {
+export interface IUser {
   id: number;
   name: string;
   email: string;
@@ -35,10 +35,12 @@ export const authSlice = createSlice({
 
     setCurrentUser: (state, action: PayloadAction<User | null>) => {
       state.currentUser = action.payload;
-      if (action.payload) {
-        localStorage.setItem("currentUser", JSON.stringify(action.payload));
-      } else {
-        localStorage.removeItem("currentUser");
+      if (typeof window !== "undefined") { // Client-side check
+        if (action.payload) {
+          localStorage.setItem("currentUser", JSON.stringify(action.payload));
+        } else {
+          localStorage.removeItem("currentUser");
+        }
       }
     },
   },
@@ -47,3 +49,22 @@ export const authSlice = createSlice({
 export const { setAuthenticated, removeCurrentUser, setCurrentUser } =
   authSlice.actions;
 export default authSlice.reducer;
+
+// Update the top User type definition (lines 4-20)
+export type User = {
+  _id: string;
+  name: string;
+  email: string;
+  role: 'user' | 'admin';
+  avatar?: string;
+  bio?: string;
+  addresses?: Array<{
+    street: string;
+    city: string;
+    state: string;
+    country: string;
+    zipCode: string;
+  }>;
+};
+
+// Remove the duplicate User interface at the bottom (lines 53-69)

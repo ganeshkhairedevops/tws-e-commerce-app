@@ -1,41 +1,44 @@
-import mongoose from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
+import { CartData, CartItem } from '../types/cache';
 
 export interface ICartItem {
-  product: string;
+  productId: string;
   quantity: number;
   price: number;
 }
 
-export interface ICart {
-  user: string;
+export interface ICart extends Document {
+  userId: string;
   items: ICartItem[];
   total: number;
+  createdAt: Date;
+  updatedAt: Date;
+  toCache(): CartData;
 }
 
-const cartItemSchema = new mongoose.Schema<ICartItem>({
-  product: {
-    type: String,
-    ref: 'Product',
-    required: true
-  },
-  quantity: {
-    type: Number,
-    required: true,
-    min: 1
-  },
-  price: {
-    type: Number,
-    required: true
-  }
-}, { _id: false });
-
-const cartSchema = new mongoose.Schema<ICart>({
-  user: {
+const CartSchema = new Schema<ICart>({
+  userId: {
     type: String,
     required: true,
-    unique: true
+    ref: 'User'
   },
-  items: [cartItemSchema],
+  items: [{
+    productId: {
+      type: String,
+      required: true,
+      ref: 'Product'
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1
+    },
+    price: {
+      type: Number,
+      required: true,
+      min: 0
+    }
+  }],
   total: {
     type: Number,
     required: true,
@@ -45,19 +48,20 @@ const cartSchema = new mongoose.Schema<ICart>({
   timestamps: true
 });
 
-// Calculate total before saving
-cartSchema.pre('save', async function(next) {
-  this.total = this.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  next();
-});
+CartSchema.methods.toCache = function(): CartData {
+  return {
+    _id: this._id.toString(),
+    userId: this.userId,
+    items: this.items.map((item: ICartItem) => ({
+      productId: item.productId.toString(),
+      quantity: item.quantity,
+      price: item.price
+    })),
+    total: this.total
+  };
+};
 
-// Delete existing model if it exists
-if (mongoose.models.Cart) {
-  delete mongoose.models.Cart;
-}
+const Cart = mongoose.models.Cart || mongoose.model<ICart>('Cart', CartSchema);
 
-// Delete existing model collection
-mongoose.connection.collections['carts']?.drop();
-
-const Cart = mongoose.model<ICart>('Cart', cartSchema);
-export default Cart;
+// export to include both named and default export
+export { Cart as default, Cart };

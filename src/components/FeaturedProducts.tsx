@@ -47,10 +47,18 @@ const FeaturedProducts = ({ featured }: FeaturedParams) => {
         setLoading(true);
         const activeShop = featured || "gadgets";
         const res = await fetch(`/api/products/featured?category=${activeShop}`);
-        const data = await res.json();
-        setProducts(data || []);
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+
+        const response = await res.json();
+        // Handle new response format
+        setProducts(Array.isArray(response?.data) ? response.data : []);
+        
       } catch (error) {
         console.error("Error fetching products:", error);
+        setProducts([]);
       } finally {
         setLoading(false);
       }

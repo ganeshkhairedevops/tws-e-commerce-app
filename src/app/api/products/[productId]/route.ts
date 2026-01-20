@@ -2,15 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Product from '@/lib/models/product';
 import { requireAuth } from '@/lib/auth/utils';
+import { ProductCache } from '@/lib/redis/productCache';
 
-// Get single product
 export async function GET(
   request: NextRequest,
   { params }: { params: { productId: string } }
 ) {
   try {
+    // Try cache first
+    const cachedProduct = await ProductCache.getProduct(params.productId);
+    if (cachedProduct) {
+      return NextResponse.json(cachedProduct);
+    }
+
+    // If not in cache, get from DB
     await dbConnect();
-    
     const product = await Product.findOne({ originalId: params.productId });
     
     if (!product) {
@@ -19,12 +25,15 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    // Cache the result
+    await ProductCache.setProduct(product);
     
     return NextResponse.json(product);
-  } catch (error: any) {
-    console.error('Product error:', error);
+  } catch (error) {
+    console.error('Product Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }

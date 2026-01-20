@@ -1,53 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mongoose from 'mongoose';
+import { requireAuth } from '@/lib/auth/middleware';
+// Fix import statement
+import { cacheService } from '@/lib/redis/cacheService';
+import { CartData } from '@/lib/types/cache';
+import { Cart } from '@/lib/models/cart';  // Change to named import
 import dbConnect from '@/lib/db';
-import Cart from '@/lib/models/cart';
 import Product from '@/lib/models/product';
-import { requireAuth } from '@/lib/auth/utils';
 
-// Get user's cart
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
-    await dbConnect();
+    const cacheKey = `cart:${auth.userId}`;
     
-    const cart = await Cart.findOne({ user: auth.userId });
-    
-    if (!cart) {
-      console.log('No cart found for user:', auth.userId);
-      return NextResponse.json({ items: [], total: 0 });
+    // Try cache first
+    const cachedCart = await cacheService.get<CartData>(cacheKey);
+    if (cachedCart) {
+      return NextResponse.json(cachedCart);
     }
 
-    // Populate product details
-    const populatedItems = await Promise.all(
-      cart.items.map(async (item: any) => {
-        const product = await Product.findOne({ originalId: item.product });
-        const itemObj = typeof item.toObject === 'function' ? item.toObject() : item;
-        return {
-          ...itemObj,
-          product: product ? {
-            _id: product._id,
-            originalId: product.originalId,
-            title: product.title,
-            price: product.price,
-            image: product.image
-          } : null
-        };
-      })
-    );
-
-    const populatedCart = {
-      ...cart.toObject(),
-      items: populatedItems
-    };
+    // If not in cache, get from DB
+    await dbConnect();
+    const cart = await Cart.findOne({ user: auth.userId });
     
-    console.log('Cart found:', populatedCart);
-    return NextResponse.json(populatedCart);
-  } catch (error: any) {
-    console.error('Cart error:', error);
+    // Cache the result
+    if (cart) {
+      await cacheService.set<CartData>(
+        cacheKey,
+        cart,
+        3600 // Add TTL parameter here
+      );
+    }
+    
+    return NextResponse.json(cart || { items: [], total: 0 });
+  } catch (error) {
+    console.error('Cart Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
-      { status: error.message === 'Authentication required' ? 401 : 500 }
+      { error: 'Internal Server Error' },
+      { status: 500 }
     );
   }
 }
@@ -97,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     // Find item in cart
     const existingItemIndex = cart.items.findIndex(
-      item => item.product === product.originalId
+      (item: { product: string }) => item.product === product.originalId
     );
 
     if (existingItemIndex > -1) {
@@ -112,7 +101,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update total
-    cart.total = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    cart.total = cart.items.reduce((sum: number, item: { price: number; quantity: number }) => sum + (item.price * item.quantity), 0);
 
     console.log('Cart before save:', cart);
 

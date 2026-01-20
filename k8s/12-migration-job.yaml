@@ -8,8 +8,7 @@ spec:
     spec:
       containers:
       - name: migration
-        image: ganeshkhaire14/easyshop-migration:2
-        imagePullPolicy: Always
+        image: ganeshkhaire14/easy-shop-app-migration:latest
         env:
         - name: MONGODB_URI
           value: "mongodb://mongodb-service:27017/easyshop"

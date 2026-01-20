@@ -1,31 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
+import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server'; // Add this import
+// Fix the MongoDB connection import path
+import dbConnect from '@/lib/mongodb';  // Use proper alias path
 import Product from '@/lib/models/product';
 
-// Map frontend categories to database categories
+export const dynamic = 'force-dynamic';
+
+// Add request parameter to the GET function
+// Add category mapping at the top of the file
 const categoryMap: { [key: string]: string } = {
-  electronics: 'gadgets',
-  gadgets: 'gadgets',
-  medicine: 'medicine',
-  grocery: 'grocery',
-  clothing: 'clothing',
-  furniture: 'furniture',
-  books: 'books',
-  beauty: 'makeup',
-  makeup: 'makeup',
-  bags: 'bags',
-  snacks: 'grocery',
-  bakery: 'bakery'
+  electronics: 'electronics',
+  clothing: 'fashion',
+  books: 'literature',
+  furniture: 'home-living',
+  all: 'all'
 };
 
 export async function GET(request: NextRequest) {
   try {
     await dbConnect();
-    console.log('Connected to MongoDB');
     
     const { searchParams } = new URL(request.url);
     const requestedCategory = searchParams.get('category') || 'electronics';
-    const category = categoryMap[requestedCategory] || requestedCategory;
+    const category = categoryMap[requestedCategory] || requestedCategory; // Now resolves correctly
     console.log('Requested category:', requestedCategory, '-> Mapped to:', category);
     
     // Build query based on category
@@ -58,12 +55,19 @@ export async function GET(request: NextRequest) {
     
     console.log('Found featured products:', products.length);
     
-    return NextResponse.json(products);
+    // Return empty array instead of null if no products
+    // Ensure consistent response format
+    return NextResponse.json({
+      success: true,
+      data: products || []
+    });
+    
   } catch (error) {
-    console.error('Featured products error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch featured products' },
-      { status: 500 }
-    );
+    console.error('Error fetching featured products:', error);
+    return NextResponse.json({
+      success: false,
+      data: [],
+      error: "Failed to load featured products"
+    }, { status: 500 });
   }
 }

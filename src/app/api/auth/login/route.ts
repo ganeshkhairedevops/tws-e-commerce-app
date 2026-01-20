@@ -5,70 +5,92 @@ import { generateToken } from "@/lib/auth/utils";
 
 export async function POST(request: NextRequest) {
   try {
+    const { email, password } = await request.json();
     await dbConnect();
-    const body = await request.json();
-    const { email, password } = body;
 
-    console.log('Login attempt for:', email);
-
-    // Find user and include password for comparison
-    const user = await User.findOne({ email }).select("+password");
-    if (!user) {
-      console.log('User not found:', email);
+    const user = await User.findOne({ email }).select('+password');
+    
+    if (!user || !(await user.comparePassword(password))) {
       return NextResponse.json(
-        { error: "Invalid credentials" },
+        { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
 
-    // Check password
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      console.log('Invalid password for user:', email);
-      return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 }
-      );
-    }
+    // Create sanitized user object without password
+    const { password: _, ...userWithoutPassword } = user.toObject();
 
-    // Generate token with proper payload structure
-    const tokenPayload = {
+    // Generate token
+    const token = await generateToken({
       userId: user._id.toString(),
-      role: user.role,
-    };
-    console.log('Generating token with payload:', tokenPayload);
-    const token = await generateToken(tokenPayload);
-
-    // Create response
-    const response = NextResponse.json({
-      success: true,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-      token,
+      role: user.role
     });
 
-    // Set token in HTTP-only cookie
+    const response = NextResponse.json({ 
+      user: userWithoutPassword,
+      token 
+    }, { status: 200 });
+
+    // Get the host from the request for dynamic cookie domain
+    const host = request.headers.get('host') || '';
+    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+    
+    // Update cookie settings for Kubernetes compatibility
     response.cookies.set({
-      name: "token",
+      name: 'auth-token',
       value: token,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 30 * 24 * 60 * 60 // 30 days
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: isLocalhost ? 'lax' : 'none',
+      path: '/',
+      maxAge: 60 * 60 * 24 // 1 day
     });
 
-    console.log('Login successful for:', email);
+    // Also set a non-httpOnly cookie for client-side access
+    response.cookies.set({
+      name: 'token',
+      value: token,
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: isLocalhost ? 'lax' : 'none',
+      path: '/',
+      maxAge: 60 * 60 * 24 // 1 day
+    });
+
+    // Add CORS headers - use the origin from the request if available
+    const origin = request.headers.get('origin');
+    if (origin) {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+    } else {
+      response.headers.set('Access-Control-Allow-Origin', '*');
+    }
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
     return response;
-  } catch (error: any) {
+  } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(
-      { error: "Authentication failed" },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
+}
+
+// Add OPTIONS handler for CORS preflight requests
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  const response = new NextResponse(null, { status: 204 });
+  
+  if (origin) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+  } else {
+    response.headers.set('Access-Control-Allow-Origin', '*');
+  }
+  
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return response;
 }

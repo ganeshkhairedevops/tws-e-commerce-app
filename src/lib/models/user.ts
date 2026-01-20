@@ -7,6 +7,7 @@ export interface IUser {
   password: string;
   role: 'user' | 'admin';
   avatar?: string;
+  bio?: string;  // Add this line
   addresses?: {
     street: string;
     city: string;
@@ -70,6 +71,11 @@ userSchema.pre('save', async function(next) {
 // Method to check if password matches
 userSchema.methods.matchPassword = async function(enteredPassword: string) {
   return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Add to your User schema definition
+userSchema.methods.comparePassword = async function(candidatePassword: string) {
+  return await bcrypt.compare(candidatePassword, this.password);
 };
 
 export default mongoose.models.User || mongoose.model<IUser>('User', userSchema);

@@ -6,23 +6,19 @@ yarn-error.log
 
 # Next.js build output
 .next
-
 # Environment variables
 .env
 .env.local
 .env.development
 .env.test
 .env.production
-
 # Version control
 .git
 .gitignore
-
 # Docker
 Dockerfile
 docker-compose.yml
 .dockerignore
-
 # Development files
 README.md
 *.md
